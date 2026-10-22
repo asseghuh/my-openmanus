@@ -31,6 +31,21 @@ Browser Use CLI 3.0 is exposed here as MCP tools. When the Browser Use skill
 shows `browser-use <<'PY'`, pass the Python body to `browser_exec` instead.
 Use `browser_screenshot` when visual inspection is needed. Both tools use the
 same persistent browser-harness session as CLI 3.0.
+
+Rules for the `code` argument of `browser_exec`:
+1. `code` is executed as Python via exec(), so it must be valid Python.
+   Never nest the same quote style: prefer double quotes for Python strings
+   and single quotes inside JavaScript, or use Python triple quotes when the
+   JavaScript needs double quotes.
+     GOOD: js("document.querySelector('input').value = 'x'")
+     GOOD: js('''document.querySelector("input[placeholder='xx']")''')
+     BAD (SyntaxError): js('document.querySelector("input[placeholder='xx']")')
+2. Observe before acting. After every navigation (new_tab/goto_url), call
+   `print(page_info())` or use `browser_screenshot` to see the real page
+   first. Never guess CSS selectors or click coordinates - verify them
+   against the observed page. If the query can be carried by URL parameters
+   (date, origin, destination), navigate directly, then extract the results
+   with page_info() instead of filling forms blindly.
 """
 
 

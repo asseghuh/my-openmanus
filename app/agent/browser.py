@@ -90,6 +90,19 @@ Use Browser Use CLI 3.0 through `browser_exec`. Pass the Python body from CLI
 examples as the `code` argument. Use `browser_screenshot` when visual context
 is needed. The browser-harness session persists across calls. Use `terminate`
 when the task is complete.
+
+Rules for the `code` argument of `browser_exec`:
+1. `code` is executed as Python via exec(), so it must be valid Python.
+   Never nest the same quote style: prefer double quotes for Python strings
+   and single quotes inside JavaScript, or use Python triple quotes when the
+   JavaScript needs double quotes. Nesting single quotes inside a
+   single-quoted js('...') string is a SyntaxError.
+2. Observe before acting. After every navigation (new_tab/goto_url), call
+   `print(page_info())` or use `browser_screenshot` to see the real page
+   first. Never guess CSS selectors or click coordinates - verify them
+   against the observed page. If the query can be carried by URL parameters
+   (date, origin, destination), navigate directly, then extract the results
+   with page_info() instead of filling forms blindly.
 """
 
     async def initialize(self) -> None:
