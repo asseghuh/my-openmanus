@@ -157,19 +157,19 @@ class WebSearch(BaseTool):
     """Search the web for information using various search engines."""
 
     name: str = "web_search"
-    description: str = """Search the web for real-time information about any topic.
-    This tool returns comprehensive search results with relevant information, URLs, titles, and descriptions.
-    If the primary search engine fails, it automatically falls back to alternative engines."""
+    description: str = """在网上搜索任意主题的实时信息。
+    本工具返回包含相关信息、URL、标题和描述的综合搜索结果。
+    若主搜索引擎失败，会自动回退到备用引擎。"""
     parameters: dict = {
         "type": "object",
         "properties": {
             "query": {
                 "type": "string",
-                "description": "(required) The search query to submit to the search engine.",
+                "description": "（必填）提交给搜索引擎的查询语句。",
             },
             "num_results": {
                 "type": "integer",
-                "description": "(optional) The number of search results to return. Default is 5.",
+                "description": "（可选）返回的搜索结果数量。默认 5。",
                 "default": 5,
             },
             "lang": {

@@ -6,25 +6,25 @@ class NormalPythonExecute(PythonExecute):
     """A tool for executing Python code with timeout and safety restrictions."""
 
     name: str = "python_execute"
-    description: str = """Execute Python code for in-depth data analysis / data report(task conclusion) / other normal task without direct visualization."""
+    description: str = """执行 Python 代码，用于深度数据分析 / 数据报告（任务结论）/ 其他不直接可视化的常规任务。"""
     parameters: dict = {
         "type": "object",
         "properties": {
             "code_type": {
-                "description": "code type, data process / data report / others",
+                "description": "代码类型：数据处理 / 数据报告 / 其他",
                 "type": "string",
                 "default": "process",
                 "enum": ["process", "report", "others"],
             },
             "code": {
                 "type": "string",
-                "description": """Python code to execute.
-# Note
-1. The code should generate a comprehensive text-based report containing dataset overview, column details, basic statistics, derived metrics, timeseries comparisons, outliers, and key insights.
-2. Use print() for all outputs so the analysis (including sections like 'Dataset Overview' or 'Preprocessing Results') is clearly visible and save it also
-3. Save any report / processed files / each analysis result in worksapce directory: {directory}
-4. Data reports need to be content-rich, including your overall analysis process and corresponding data visualization.
-5. You can invode this tool step-by-step to do data analysis from summary to in-depth with data report saved also""".format(
+                "description": """要执行的 Python 代码。
+# 注意
+1. 代码应生成内容完整的文本报告，包含数据集概览、列详情、基础统计、派生指标、时间序列对比、异常值和关键洞察。
+2. 所有输出都用 print()，以便分析内容（包括「数据集概览」或「预处理结果」等章节）清晰可见，同时保存下来
+3. 将报告 / 处理后的文件 / 每项分析结果保存到工作目录：{directory}
+4. 数据报告需要内容充实，包含整体分析过程和相应的数据可视化。
+5. 可以分步调用本工具，从摘要到深入分析，并保存数据报告""".format(
                     directory=config.workspace_root
                 ),
             },

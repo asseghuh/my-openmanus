@@ -8,7 +8,7 @@ from app.tool import BaseTool
 class CreateChatCompletion(BaseTool):
     name: str = "create_chat_completion"
     description: str = (
-        "Creates a structured completion with specified output formatting."
+        "按指定输出格式创建结构化补全。"
     )
 
     # Type mapping for JSON schema

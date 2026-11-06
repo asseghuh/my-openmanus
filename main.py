@@ -1,7 +1,7 @@
 import argparse
 import asyncio
 
-from app.agent.manus import Manus
+from app.agent.intent import IntentGate
 from app.logger import logger
 
 
@@ -13,8 +13,6 @@ async def main():
     )
     args = parser.parse_args()
 
-    # Create and initialize Manus agent
-    agent = await Manus.create()
     try:
         # Use command line prompt if provided, otherwise ask for input
         prompt = args.prompt if args.prompt else input("Enter your prompt: ")
@@ -23,13 +21,10 @@ async def main():
             return
 
         logger.warning("Processing your request...")
-        await agent.run(prompt)
+        await IntentGate().handle(prompt)
         logger.info("Request processing completed.")
     except KeyboardInterrupt:
         logger.warning("Operation interrupted.")
-    finally:
-        # Ensure agent resources are cleaned up before exiting
-        await agent.cleanup()
 
 
 if __name__ == "__main__":

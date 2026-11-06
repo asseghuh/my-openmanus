@@ -17,7 +17,7 @@ class MCPAgent(ToolCallAgent):
     """
 
     name: str = "mcp_agent"
-    description: str = "An agent that connects to an MCP server and uses its tools."
+    description: str = "连接 MCP 服务器并使用其工具的智能体。"
 
     system_prompt: str = SYSTEM_PROMPT
     next_step_prompt: str = NEXT_STEP_PROMPT
@@ -90,9 +90,9 @@ class MCPAgent(ToolCallAgent):
         # Add system prompt and available tools information
         self.memory.add_message(
             Message.system_message(
-                f"{self.system_prompt}\n\nAvailable MCP tools: {tools_info}"
+                f"{self.system_prompt}\n\n可用 MCP 工具：{tools_info}"
                 + (
-                    f"\n\nMCP server instructions:\n{instructions}"
+                    f"\n\nMCP 服务器说明：\n{instructions}"
                     if instructions
                     else ""
                 )

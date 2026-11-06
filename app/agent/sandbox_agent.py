@@ -6,6 +6,7 @@ from app.agent.browser import BrowserContextHelper
 from app.agent.toolcall import ToolCallAgent
 from app.config import config
 from app.daytona.sandbox import create_sandbox, delete_sandbox
+from app.mcp.bootstrap import connect_configured_mcp_servers, inject_mcp_instructions
 from app.daytona.tool_base import SandboxToolsBase
 from app.logger import logger
 from app.prompt.manus import NEXT_STEP_PROMPT, SYSTEM_PROMPT
@@ -22,7 +23,7 @@ class SandboxManus(ToolCallAgent):
     """A versatile general-purpose agent with support for both local and MCP tools."""
 
     name: str = "SandboxManus"
-    description: str = "A versatile agent that can solve various tasks using multiple sandbox-tools including MCP-based tools"
+    description: str = "通用智能体，可使用包括 MCP 工具在内的多种沙箱工具完成各类任务"
 
     system_prompt: str = SYSTEM_PROMPT.format(directory=config.workspace_root)
     next_step_prompt: str = NEXT_STEP_PROMPT
@@ -51,6 +52,7 @@ class SandboxManus(ToolCallAgent):
     connected_servers: Dict[str, str] = Field(
         default_factory=dict
     )  # server_id -> url/command
+    mcp_instruction_servers: set[str] = Field(default_factory=set, exclude=True)
     _initialized: bool = False
     sandbox_link: Optional[dict[str, dict[str, str]]] = Field(default_factory=dict)
 
@@ -111,28 +113,8 @@ class SandboxManus(ToolCallAgent):
             raise
 
     async def initialize_mcp_servers(self) -> None:
-        """Initialize connections to configured MCP servers."""
-        for server_id, server_config in config.mcp_config.servers.items():
-            try:
-                if server_config.type == "sse":
-                    if server_config.url:
-                        await self.connect_mcp_server(server_config.url, server_id)
-                        logger.info(
-                            f"Connected to MCP server {server_id} at {server_config.url}"
-                        )
-                elif server_config.type == "stdio":
-                    if server_config.command:
-                        await self.connect_mcp_server(
-                            server_config.command,
-                            server_id,
-                            use_stdio=True,
-                            stdio_args=server_config.args,
-                        )
-                        logger.info(
-                            f"Connected to MCP server {server_id} using command {server_config.command}"
-                        )
-            except Exception as e:
-                logger.error(f"Failed to connect to MCP server {server_id}: {e}")
+        """按配置连接全部 MCP，不针对某个服务写死。"""
+        await connect_configured_mcp_servers(self)
 
     async def connect_mcp_server(
         self,
@@ -140,11 +122,18 @@ class SandboxManus(ToolCallAgent):
         server_id: str = "",
         use_stdio: bool = False,
         stdio_args: List[str] = None,
+        tool_name_prefix: bool = True,
+        stdio_env: Optional[Dict[str, str]] = None,
+        extra_instructions: Optional[str] = None,
     ) -> None:
         """Connect to an MCP server and add its tools."""
         if use_stdio:
             await self.mcp_clients.connect_stdio(
-                server_url, stdio_args or [], server_id
+                server_url,
+                stdio_args or [],
+                server_id,
+                tool_name_prefix=tool_name_prefix,
+                env=stdio_env,
             )
             self.connected_servers[server_id or server_url] = server_url
         else:
@@ -156,6 +145,7 @@ class SandboxManus(ToolCallAgent):
             tool for tool in self.mcp_clients.tools if tool.server_id == server_id
         ]
         self.available_tools.add_tools(*new_tools)
+        inject_mcp_instructions(self, server_id or server_url, extra_instructions)
 
     async def disconnect_mcp_server(self, server_id: str = "") -> None:
         """Disconnect from an MCP server and remove its tools."""

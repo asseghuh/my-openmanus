@@ -18,7 +18,7 @@ class DataAnalysis(ToolCallAgent):
     """
 
     name: str = "Data_Analysis"
-    description: str = "An analytical agent that utilizes python and data visualization tools to solve diverse data analysis tasks"
+    description: str = "分析型智能体，使用 Python 和数据可视化工具完成各类数据分析任务"
 
     system_prompt: str = SYSTEM_PROMPT.format(directory=config.workspace_root)
     next_step_prompt: str = NEXT_STEP_PROMPT

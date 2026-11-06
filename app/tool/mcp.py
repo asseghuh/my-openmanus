@@ -7,6 +7,7 @@ from mcp.client.stdio import stdio_client
 from mcp.types import ImageContent, ListToolsResult, TextContent
 
 from app.logger import logger
+from app.mcp.stdio_cmd import resolve_stdio_launch
 from app.tool.base import BaseTool, ToolResult
 from app.tool.tool_collection import ToolCollection
 
@@ -105,10 +106,22 @@ class MCPClients(ToolCollection):
         exit_stack = AsyncExitStack()
         self.exit_stacks[server_id] = exit_stack
 
-        server_params = StdioServerParameters(command=command, args=args, env=env)
-        stdio_transport = await exit_stack.enter_async_context(
-            stdio_client(server_params)
+        launch_command, launch_args = resolve_stdio_launch(command, args)
+        logger.info(
+            f"Starting MCP stdio server {server_id}: {launch_command} {' '.join(launch_args)}"
         )
+        server_params = StdioServerParameters(
+            command=launch_command, args=launch_args, env=env
+        )
+        try:
+            stdio_transport = await exit_stack.enter_async_context(
+                stdio_client(server_params)
+            )
+        except FileNotFoundError as e:
+            raise FileNotFoundError(
+                f"找不到 MCP 启动命令 '{command}'。Windows 下请确认已安装 Node.js，"
+                f"且 PATH 中能找到 npx.cmd（当前解析为: {launch_command}）。"
+            ) from e
         read, write = stdio_transport
         session = await exit_stack.enter_async_context(ClientSession(read, write))
         self.sessions[server_id] = session

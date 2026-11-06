@@ -132,17 +132,14 @@ async def test_manus_enables_cli_mcp_by_default(monkeypatch):
 
     await manus_module.Manus.model_construct().initialize_mcp_servers()
 
-    assert calls == [
-        (
-            ("uvx", "browser_use"),
-            {
-                "use_stdio": True,
-                "stdio_args": ["browser-use", "--cli-mcp"],
-                "tool_name_prefix": False,
-                "stdio_env": {
-                    "BROWSER_USE_API_KEY": "bu_test",
-                    "BU_CDP_URL": "http://127.0.0.1:9237",
-                },
-            },
-        )
-    ]
+    assert len(calls) == 1
+    args, kwargs = calls[0]
+    assert args == ("uvx", "browser_use")
+    assert kwargs["use_stdio"] is True
+    assert kwargs["stdio_args"] == ["browser-use", "--cli-mcp"]
+    assert kwargs["tool_name_prefix"] is False
+    assert kwargs["stdio_env"] == {
+        "BROWSER_USE_API_KEY": "bu_test",
+        "BU_CDP_URL": "http://127.0.0.1:9237",
+    }
+    assert "browser_exec" in (kwargs.get("extra_instructions") or "")

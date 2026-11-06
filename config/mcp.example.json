@@ -1,8 +1,28 @@
 {
-    "mcpServers": {
-      "server1": {
-        "type": "sse",
-        "url": "http://localhost:8000/sse"
-      }
+  "mcpServers": {
+    "amap-maps": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@amap/amap-maps-mcp-server"],
+      "enabled": true,
+      "tool_name_prefix": false,
+      "inherit_process_env": true,
+      "env": {
+        "AMAP_MAPS_API_KEY": "${AMAP_MAPS_API_KEY}"
+      },
+      "instructions": "天气、地点、周边、路径请优先用 maps_*，不要用浏览器。用户没说城市时禁止猜测 city（不要填南京/北京/上海等）。查地铁站、商场、景点等 POI 用 maps_text_search，不要用 maps_geo（geo 会把「红山地铁站」误解析成赤峰红山区）。未指明城市时 text_search 不要传 city，根据返回的地铁线路/地址判断城市；多城市重名时列出候选再问用户。确认坐标后再 maps_around_search。结构化门牌地址才用 maps_geo。"
+    },
+    "tavily-mcp": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "tavily-mcp@0.1.4"],
+      "enabled": true,
+      "tool_name_prefix": false,
+      "inherit_process_env": true,
+      "env": {
+        "TAVILY_API_KEY": "${TAVILY_API_KEY}"
+      },
+      "instructions": "新闻、实时资讯、网页检索请优先用 tavily-search；需要打开某篇正文再用 tavily-extract。不要用浏览器做同样的搜索。搜今天/最新时，query 必须带下一步提示里的真实年月日，禁止用训练记忆中的年月。"
     }
+  }
 }

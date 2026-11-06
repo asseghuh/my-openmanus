@@ -21,15 +21,15 @@ class Crawl4aiTool(BaseTool):
     """
 
     name: str = "crawl4ai"
-    description: str = """Web crawler that extracts clean, AI-ready content from web pages.
+    description: str = """从网页提取干净、适合 AI 使用的内容的爬虫。
 
-    Features:
-    - Extracts clean markdown content optimized for LLMs
-    - Handles JavaScript-heavy sites and dynamic content
-    - Supports multiple URLs in a single request
-    - Fast and reliable with built-in error handling
+    能力：
+    - 提取面向 LLM 优化的干净 markdown
+    - 处理重度 JavaScript 站点与动态内容
+    - 单次请求支持多个 URL
+    - 内置错误处理，快速可靠
 
-    Perfect for content analysis, research, and feeding web content to AI models."""
+    适用于内容分析、调研，以及把网页内容交给 AI 模型处理。"""
 
     parameters: dict = {
         "type": "object",
@@ -37,24 +37,24 @@ class Crawl4aiTool(BaseTool):
             "urls": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": "(required) List of URLs to crawl. Can be a single URL or multiple URLs.",
+                "description": "（必填）要抓取的 URL 列表。可以是单个或多个 URL。",
                 "minItems": 1,
             },
             "timeout": {
                 "type": "integer",
-                "description": "(optional) Timeout in seconds for each URL. Default is 30.",
+                "description": "（可选）每个 URL 的超时秒数。默认 30。",
                 "default": 30,
                 "minimum": 5,
                 "maximum": 120,
             },
             "bypass_cache": {
                 "type": "boolean",
-                "description": "(optional) Whether to bypass cache and fetch fresh content. Default is false.",
+                "description": "（可选）是否绕过缓存并获取最新内容。默认 false。",
                 "default": False,
             },
             "word_count_threshold": {
                 "type": "integer",
-                "description": "(optional) Minimum word count for content blocks. Default is 10.",
+                "description": "（可选）内容块的最小词数。默认 10。",
                 "default": 10,
                 "minimum": 1,
             },

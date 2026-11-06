@@ -125,14 +125,36 @@ class DaytonaSettings(BaseModel):
 
 
 class MCPServerConfig(BaseModel):
-    """Configuration for a single MCP server"""
+    """单个 MCP 服务器配置。新增服务只需改 mcp.json，不必改代码。"""
 
-    type: str = Field(..., description="Server connection type (sse or stdio)")
-    url: Optional[str] = Field(None, description="Server URL for SSE connections")
-    command: Optional[str] = Field(None, description="Command for stdio connections")
-    args: List[str] = Field(
-        default_factory=list, description="Arguments for stdio command"
+    type: str = Field("stdio", description="连接类型：sse 或 stdio")
+    url: Optional[str] = Field(None, description="SSE 连接地址")
+    command: Optional[str] = Field(None, description="stdio 启动命令")
+    args: List[str] = Field(default_factory=list, description="stdio 命令参数")
+    enabled: bool = Field(True, description="是否启用该服务器")
+    tool_name_prefix: bool = Field(
+        True, description="工具名是否加上 mcp_{server_id}_ 前缀"
     )
+    inherit_process_env: bool = Field(
+        True, description="stdio 是否继承当前进程环境（Windows 上 npx/uvx 需要 PATH）"
+    )
+    env: Dict[str, str] = Field(
+        default_factory=dict, description="额外环境变量，值支持 ${VAR} 引用"
+    )
+    env_passthrough: List[str] = Field(
+        default_factory=list, description="从当前进程按名拷贝的环境变量"
+    )
+    instructions: str = Field("", description="注入给模型的该服务器使用说明")
+
+    @classmethod
+    def from_raw(cls, raw: dict) -> "MCPServerConfig":
+        """兼容 Cursor mcp.json（可无 type、用 disabled）。"""
+        data = dict(raw or {})
+        if "enabled" not in data and "disabled" in data:
+            data["enabled"] = not bool(data.get("disabled"))
+        if "type" not in data:
+            data["type"] = "sse" if data.get("url") else "stdio"
+        return cls.model_validate(data)
 
 
 class MCPSettings(BaseModel):
@@ -155,17 +177,14 @@ class MCPSettings(BaseModel):
             if not config_file:
                 return {}
 
-            with config_file.open() as f:
+            with config_file.open(encoding="utf-8") as f:
                 data = json.load(f)
                 servers = {}
 
                 for server_id, server_config in data.get("mcpServers", {}).items():
-                    servers[server_id] = MCPServerConfig(
-                        type=server_config["type"],
-                        url=server_config.get("url"),
-                        command=server_config.get("command"),
-                        args=server_config.get("args", []),
-                    )
+                    if not isinstance(server_config, dict):
+                        continue
+                    servers[server_id] = MCPServerConfig.from_raw(server_config)
                 return servers
         except Exception as e:
             raise ValueError(f"Failed to load MCP server config: {e}")

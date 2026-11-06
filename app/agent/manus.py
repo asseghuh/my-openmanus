@@ -1,13 +1,11 @@
-import os
 from typing import Dict, List, Optional
 
 from pydantic import Field
 
 from app.agent.toolcall import ToolCallAgent
 from app.config import config
-from app.logger import logger
+from app.mcp.bootstrap import connect_configured_mcp_servers, inject_mcp_instructions
 from app.prompt.manus import NEXT_STEP_PROMPT, SYSTEM_PROMPT
-from app.schema import Message
 from app.tool import Terminate, ToolCollection
 from app.tool.ask_human import AskHuman
 from app.tool.mcp import MCPClients, MCPClientTool
@@ -15,49 +13,11 @@ from app.tool.python_execute import PythonExecute
 from app.tool.str_replace_editor import StrReplaceEditor
 
 
-_BROWSER_USE_SERVER_ID = "browser_use"
-_BROWSER_USE_COMMAND = "uvx"
-_BROWSER_USE_ARGS = ["browser-use", "--cli-mcp"]
-_BROWSER_USE_ENV_VARS = (
-    "BROWSER_USE_API_KEY",
-    "BROWSER_USE_CLOUD_API_URL",
-    "BU_BROWSER_ID",
-    "BU_CDP_URL",
-    "BU_CDP_WS",
-    "BU_NAME",
-)
-_BROWSER_USE_TRANSPORT_INSTRUCTIONS = """\
-Browser Use CLI 3.0 is exposed here as MCP tools. When the Browser Use skill
-shows `browser-use <<'PY'`, pass the Python body to `browser_exec` instead.
-Use `browser_screenshot` when visual inspection is needed. Both tools use the
-same persistent browser-harness session as CLI 3.0.
-
-Rules for the `code` argument of `browser_exec`:
-1. `code` is executed as Python via exec(), so it must be valid Python.
-   Never nest the same quote style: prefer double quotes for Python strings
-   and single quotes inside JavaScript, or use Python triple quotes when the
-   JavaScript needs double quotes.
-     GOOD: js("document.querySelector('input').value = 'x'")
-     GOOD: js('''document.querySelector("input[placeholder='xx']")''')
-     BAD (SyntaxError): js('document.querySelector("input[placeholder='xx']")')
-2. Observe before acting. After every navigation (new_tab/goto_url), call
-   `print(page_info())` or use `browser_screenshot` to see the real page
-   first. Never guess CSS selectors or click coordinates - verify them
-   against the observed page. If the query can be carried by URL parameters
-   (date, origin, destination), navigate directly, then extract the results
-   with page_info() instead of filling forms blindly.
-"""
-
-
-def _browser_use_env() -> Dict[str, str]:
-    return {name: value for name in _BROWSER_USE_ENV_VARS if (value := os.getenv(name))}
-
-
 class Manus(ToolCallAgent):
     """A versatile general-purpose agent with support for both local and MCP tools."""
 
     name: str = "Manus"
-    description: str = "A versatile agent that can solve various tasks using multiple tools including MCP-based tools"
+    description: str = "通用智能体，可使用包括 MCP 工具在内的多种工具完成各类任务"
 
     system_prompt: str = SYSTEM_PROMPT.format(directory=config.workspace_root)
     next_step_prompt: str = NEXT_STEP_PROMPT
@@ -96,50 +56,8 @@ class Manus(ToolCallAgent):
         return instance
 
     async def initialize_mcp_servers(self) -> None:
-        """Initialize connections to configured MCP servers."""
-        if _BROWSER_USE_SERVER_ID not in config.mcp_config.servers and os.getenv(
-            "OPENMANUS_DISABLE_BROWSER_USE", ""
-        ).lower() not in {"1", "true", "yes"}:
-            try:
-                await self.connect_mcp_server(
-                    _BROWSER_USE_COMMAND,
-                    _BROWSER_USE_SERVER_ID,
-                    use_stdio=True,
-                    stdio_args=_BROWSER_USE_ARGS,
-                    tool_name_prefix=False,
-                    stdio_env=_browser_use_env(),
-                )
-                logger.info("Connected to Browser Use CLI 3.0 through MCP")
-            except Exception as e:
-                logger.error(f"Failed to connect to Browser Use CLI 3.0: {e}")
-
-        for server_id, server_config in config.mcp_config.servers.items():
-            try:
-                if server_config.type == "sse":
-                    if server_config.url:
-                        await self.connect_mcp_server(server_config.url, server_id)
-                        logger.info(
-                            f"Connected to MCP server {server_id} at {server_config.url}"
-                        )
-                elif server_config.type == "stdio":
-                    if server_config.command:
-                        await self.connect_mcp_server(
-                            server_config.command,
-                            server_id,
-                            use_stdio=True,
-                            stdio_args=server_config.args,
-                            tool_name_prefix=server_id != _BROWSER_USE_SERVER_ID,
-                            stdio_env=(
-                                _browser_use_env()
-                                if server_id == _BROWSER_USE_SERVER_ID
-                                else None
-                            ),
-                        )
-                        logger.info(
-                            f"Connected to MCP server {server_id} using command {server_config.command}"
-                        )
-            except Exception as e:
-                logger.error(f"Failed to connect to MCP server {server_id}: {e}")
+        """按配置连接全部 MCP，不针对某个服务写死。"""
+        await connect_configured_mcp_servers(self)
 
     async def connect_mcp_server(
         self,
@@ -149,6 +67,7 @@ class Manus(ToolCallAgent):
         stdio_args: Optional[List[str]] = None,
         tool_name_prefix: bool = True,
         stdio_env: Optional[Dict[str, str]] = None,
+        extra_instructions: Optional[str] = None,
     ) -> None:
         """Connect to an MCP server and add its tools."""
         if use_stdio:
@@ -169,21 +88,7 @@ class Manus(ToolCallAgent):
             tool for tool in self.mcp_clients.tools if tool.server_id == server_id
         ]
         self.available_tools.add_tools(*new_tools)
-
-        resolved_server_id = server_id or server_url
-        instructions = self.mcp_clients.server_instructions.get(resolved_server_id)
-        if instructions and resolved_server_id not in self.mcp_instruction_servers:
-            transport_instructions = (
-                f"{_BROWSER_USE_TRANSPORT_INSTRUCTIONS}\n"
-                if resolved_server_id == _BROWSER_USE_SERVER_ID
-                else ""
-            )
-            self.memory.add_message(
-                Message.system_message(
-                    f"{transport_instructions}MCP server instructions:\n{instructions}"
-                )
-            )
-            self.mcp_instruction_servers.add(resolved_server_id)
+        inject_mcp_instructions(self, server_id or server_url, extra_instructions)
 
     async def disconnect_mcp_server(self, server_id: str = "") -> None:
         """Disconnect from an MCP server and remove its tools."""

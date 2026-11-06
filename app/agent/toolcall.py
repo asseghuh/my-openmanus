@@ -1,5 +1,6 @@
 import asyncio
 import json
+from datetime import datetime
 from typing import Any, List, Optional, Union
 
 from pydantic import Field
@@ -7,6 +8,7 @@ from pydantic import Field
 from app.agent.react import ReActAgent
 from app.exceptions import TokenLimitExceeded
 from app.logger import logger
+from app.mcp.map_args import collect_user_text, sanitize_map_tool_call
 from app.prompt.toolcall import NEXT_STEP_PROMPT, SYSTEM_PROMPT
 from app.schema import TOOL_CHOICE_TYPE, AgentState, Message, ToolCall, ToolChoice
 from app.tool import CreateChatCompletion, Terminate, ToolCollection
@@ -15,11 +17,18 @@ from app.tool import CreateChatCompletion, Terminate, ToolCollection
 TOOL_CALL_REQUIRED = "Tool calls required but none provided"
 
 
+def fill_server_now(text: Optional[str]) -> Optional[str]:
+    """把提示词里的 {now} 换成当前服务器时间，避免模型用训练记忆猜今天。"""
+    if not text or "{now}" not in text:
+        return text
+    return text.replace("{now}", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
+
 class ToolCallAgent(ReActAgent):
     """Base agent class for handling tool/function calls with enhanced abstraction"""
 
     name: str = "toolcall"
-    description: str = "an agent that can execute tool calls."
+    description: str = "可以执行工具调用的智能体。"
 
     system_prompt: str = SYSTEM_PROMPT
     next_step_prompt: str = NEXT_STEP_PROMPT
@@ -38,8 +47,10 @@ class ToolCallAgent(ReActAgent):
 
     async def think(self) -> bool:
         """Process current state and decide next actions using tools"""
-        if self.next_step_prompt:
-            user_msg = Message.user_message(self.next_step_prompt)
+        next_step_prompt = fill_server_now(self.next_step_prompt)
+        system_prompt = fill_server_now(self.system_prompt)
+        if next_step_prompt:
+            user_msg = Message.user_message(next_step_prompt)
             self.messages += [user_msg]
 
         try:
@@ -47,8 +58,8 @@ class ToolCallAgent(ReActAgent):
             response = await self.llm.ask_tool(
                 messages=self.messages,
                 system_msgs=(
-                    [Message.system_message(self.system_prompt)]
-                    if self.system_prompt
+                    [Message.system_message(system_prompt)]
+                    if system_prompt
                     else None
                 ),
                 tools=self.available_tools.to_params(),
@@ -114,9 +125,18 @@ class ToolCallAgent(ReActAgent):
             if self.tool_choices == ToolChoice.REQUIRED and not self.tool_calls:
                 return True  # Will be handled in act()
 
-            # For 'auto' mode, continue with content if no commands but content exists
+            # 已给出文字答复且不再调工具：结束循环，并立刻回传最终答案。
+            # 不要等 MCP cleanup：清理常卡在 cancel scope，前端会一直看不到结果。
             if self.tool_choices == ToolChoice.AUTO and not self.tool_calls:
+                if content:
+                    self.state = AgentState.FINISHED
+                    self._emit_final_answer(content)
                 return bool(content)
+
+            # 同一条回复里写了正文又调用 terminate：也立刻推结果，
+            # 否则会等清理结束，页面会一直停在 Thought process。
+            if content and self._is_terminate_call():
+                self._emit_final_answer(content)
 
             return bool(self.tool_calls)
         except Exception as e:
@@ -183,6 +203,12 @@ class ToolCallAgent(ReActAgent):
         try:
             # Parse arguments
             args = json.loads(command.function.arguments or "{}")
+            name, args = sanitize_map_tool_call(
+                name,
+                args,
+                collect_user_text(self.memory),
+                self.available_tools.tool_map.keys(),
+            )
 
             # Execute the tool
             logger.info(f"🔧 Activating tool: '{name}'...")
@@ -214,6 +240,27 @@ class ToolCallAgent(ReActAgent):
             error_msg = f"⚠️ Tool '{name}' encountered a problem: {str(e)}"
             logger.exception(error_msg)
             return f"Error: {error_msg}"
+
+    def _is_terminate_call(self) -> bool:
+        """当前工具调用里是否包含 terminate。"""
+        for call in self.tool_calls or []:
+            name = getattr(getattr(call, "function", None), "name", "") or ""
+            if self._is_special_tool(name):
+                return True
+        return False
+
+    def _emit_final_answer(self, content: str) -> None:
+        """立刻把面向用户的答复推给 Web，不依赖后续 MCP 清理。"""
+        text = (content or "").strip()
+        if not text:
+            return
+        callback = getattr(self, "on_final_answer", None)
+        if not callable(callback):
+            return
+        try:
+            callback(text)
+        except Exception as cb_err:
+            logger.warning(f"on_final_answer failed: {cb_err}")
 
     async def _handle_special_tool(self, name: str, result: Any, **kwargs):
         """Handle special tool execution and state changes"""

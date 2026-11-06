@@ -138,9 +138,9 @@ class PlanningFlow(BaseFlow):
         logger.info(f"Creating initial plan with ID: {self.active_plan_id}")
 
         system_message_content = (
-            "You are a planning assistant. Create a concise, actionable plan with clear steps. "
-            "Focus on key milestones rather than detailed sub-steps. "
-            "Optimize for clarity and efficiency."
+            "你是规划助手。请创建简洁、可执行、步骤清晰的计划。"
+            "关注关键里程碑，而不是过细的子步骤。"
+            "优先保证清晰和高效。"
         )
         agents_description = []
         for key in self.executor_keys:
@@ -154,9 +154,9 @@ class PlanningFlow(BaseFlow):
         if len(agents_description) > 1:
             # Add description of agents to select
             system_message_content += (
-                f"\nNow we have {agents_description} agents. "
-                f"The infomation of them are below: {json.dumps(agents_description)}\n"
-                "When creating steps in the planning tool, please specify the agent names using the format '[agent_name]'."
+                f"\n当前有 {agents_description} 个智能体。"
+                f"它们的信息如下：{json.dumps(agents_description, ensure_ascii=False)}\n"
+                "在 planning 工具中创建步骤时，请用 '[agent_name]' 格式标明智能体名称。"
             )
 
         # Create a system message for plan creation
@@ -164,7 +164,7 @@ class PlanningFlow(BaseFlow):
 
         # Create a user message with the request
         user_message = Message.user_message(
-            f"Create a reasonable plan with clear steps to accomplish the task: {request}"
+            f"请制定一份步骤清晰、合理的计划以完成该任务：{request}"
         )
 
         # Call LLM with PlanningTool
@@ -205,8 +205,8 @@ class PlanningFlow(BaseFlow):
             **{
                 "command": "create",
                 "plan_id": self.active_plan_id,
-                "title": f"Plan for: {request[:50]}{'...' if len(request) > 50 else ''}",
-                "steps": ["Analyze request", "Execute task", "Verify results"],
+                "title": f"计划：{request[:50]}{'...' if len(request) > 50 else ''}",
+                "steps": ["分析请求", "执行任务", "校验结果"],
             }
         )
 
@@ -278,17 +278,17 @@ class PlanningFlow(BaseFlow):
         """Execute the current step with the specified agent using agent.run()."""
         # Prepare context for the agent with current plan status
         plan_status = await self._get_plan_text()
-        step_text = step_info.get("text", f"Step {self.current_step_index}")
+        step_text = step_info.get("text", f"第 {self.current_step_index} 步")
 
         # Create a prompt for the agent to execute the current step
         step_prompt = f"""
-        CURRENT PLAN STATUS:
+        当前计划状态：
         {plan_status}
 
-        YOUR CURRENT TASK:
-        You are now working on step {self.current_step_index}: "{step_text}"
+        你当前的任务：
+        你正在执行第 {self.current_step_index} 步："{step_text}"
 
-        Please only execute this current step using the appropriate tools. When you're done, provide a summary of what you accomplished.
+        请只用合适的工具执行当前这一步。完成后，总结你完成了什么。
         """
 
         # Use agent.run() to execute the step
@@ -352,7 +352,7 @@ class PlanningFlow(BaseFlow):
                 return f"Error: Plan with ID {self.active_plan_id} not found"
 
             plan_data = self.planning_tool.plans[self.active_plan_id]
-            title = plan_data.get("title", "Untitled Plan")
+            title = plan_data.get("title", "未命名计划")
             steps = plan_data.get("steps", [])
             step_statuses = plan_data.get("step_statuses", [])
             step_notes = plan_data.get("step_notes", [])
@@ -374,15 +374,15 @@ class PlanningFlow(BaseFlow):
             total = len(steps)
             progress = (completed / total) * 100 if total > 0 else 0
 
-            plan_text = f"Plan: {title} (ID: {self.active_plan_id})\n"
+            plan_text = f"计划：{title}（ID: {self.active_plan_id}）\n"
             plan_text += "=" * len(plan_text) + "\n\n"
 
             plan_text += (
-                f"Progress: {completed}/{total} steps completed ({progress:.1f}%)\n"
+                f"进度：已完成 {completed}/{total} 步（{progress:.1f}%）\n"
             )
-            plan_text += f"Status: {status_counts[PlanStepStatus.COMPLETED.value]} completed, {status_counts[PlanStepStatus.IN_PROGRESS.value]} in progress, "
-            plan_text += f"{status_counts[PlanStepStatus.BLOCKED.value]} blocked, {status_counts[PlanStepStatus.NOT_STARTED.value]} not started\n\n"
-            plan_text += "Steps:\n"
+            plan_text += f"状态：已完成 {status_counts[PlanStepStatus.COMPLETED.value]}，进行中 {status_counts[PlanStepStatus.IN_PROGRESS.value]}，"
+            plan_text += f"阻塞 {status_counts[PlanStepStatus.BLOCKED.value]}，未开始 {status_counts[PlanStepStatus.NOT_STARTED.value]}\n\n"
+            plan_text += "步骤：\n"
 
             status_marks = PlanStepStatus.get_status_marks()
 
@@ -396,7 +396,7 @@ class PlanningFlow(BaseFlow):
 
                 plan_text += f"{i}. {status_mark} {step}\n"
                 if notes:
-                    plan_text += f"   Notes: {notes}\n"
+                    plan_text += f"   备注：{notes}\n"
 
             return plan_text
         except Exception as e:
@@ -410,18 +410,18 @@ class PlanningFlow(BaseFlow):
         # Create a summary using the flow's LLM directly
         try:
             system_message = Message.system_message(
-                "You are a planning assistant. Your task is to summarize the completed plan."
+                "你是规划助手。你的任务是总结已完成的计划。"
             )
 
             user_message = Message.user_message(
-                f"The plan has been completed. Here is the final plan status:\n\n{plan_text}\n\nPlease provide a summary of what was accomplished and any final thoughts."
+                f"计划已经完成。以下是最终计划状态：\n\n{plan_text}\n\n请总结完成了哪些工作，并给出最后的看法。"
             )
 
             response = await self.llm.ask(
                 messages=[user_message], system_msgs=[system_message]
             )
 
-            return f"Plan completed:\n\n{response}"
+            return f"计划已完成：\n\n{response}"
         except Exception as e:
             logger.error(f"Error finalizing plan with LLM: {e}")
 
@@ -429,14 +429,14 @@ class PlanningFlow(BaseFlow):
             try:
                 agent = self.primary_agent
                 summary_prompt = f"""
-                The plan has been completed. Here is the final plan status:
+                计划已经完成。以下是最终计划状态：
 
                 {plan_text}
 
-                Please provide a summary of what was accomplished and any final thoughts.
+                请总结完成了哪些工作，并给出最后的看法。
                 """
                 summary = await agent.run(summary_prompt)
-                return f"Plan completed:\n\n{summary}"
+                return f"计划已完成：\n\n{summary}"
             except Exception as e2:
                 logger.error(f"Error finalizing plan with agent: {e2}")
-                return "Plan completed. Error generating summary."
+                return "计划已完成。生成摘要时出错。"

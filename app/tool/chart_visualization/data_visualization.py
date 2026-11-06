@@ -14,33 +14,33 @@ from app.tool.base import BaseTool
 
 class DataVisualization(BaseTool):
     name: str = "data_visualization"
-    description: str = """Visualize statistical chart or Add insights in chart with JSON info from visualization_preparation tool. You can do steps as follows:
-1. Visualize statistical chart
-2. Choose insights into chart based on step 1 (Optional)
-Outputs:
-1. Charts (png/html)
-2. Charts Insights (.md)(Optional)"""
+    description: str = """根据 visualization_preparation 工具给出的 JSON 信息绘制统计图，或向图中添加洞察。可按以下步骤：
+1. 绘制统计图
+2. 基于第 1 步选择洞察加入图表（可选）
+输出：
+1. 图表（png/html）
+2. 图表洞察（.md）（可选）"""
     parameters: dict = {
         "type": "object",
         "properties": {
             "json_path": {
                 "type": "string",
-                "description": """file path of json info with ".json" in the end""",
+                "description": """json 信息的文件路径，以 ".json" 结尾""",
             },
             "output_type": {
-                "description": "Rendering format (html=interactive)",
+                "description": "渲染格式（html=可交互）",
                 "type": "string",
                 "default": "html",
                 "enum": ["png", "html"],
             },
             "tool_type": {
-                "description": "visualize chart or add insights",
+                "description": "绘制图表或添加洞察",
                 "type": "string",
                 "default": "visualization",
                 "enum": ["visualization", "insight"],
             },
             "language": {
-                "description": "english(en) / chinese(zh)",
+                "description": "英语(en) / 中文(zh)",
                 "type": "string",
                 "default": "en",
                 "enum": ["zh", "en"],

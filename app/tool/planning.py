@@ -6,8 +6,8 @@ from app.tool.base import BaseTool, ToolResult
 
 
 _PLANNING_TOOL_DESCRIPTION = """
-A planning tool that allows the agent to create and manage plans for solving complex tasks.
-The tool provides functionality for creating plans, updating plan steps, and tracking progress.
+规划工具，供智能体创建和管理用于解决复杂任务的计划。
+提供创建计划、更新步骤以及跟踪进度的能力。
 """
 
 
@@ -23,7 +23,7 @@ class PlanningTool(BaseTool):
         "type": "object",
         "properties": {
             "command": {
-                "description": "The command to execute. Available commands: create, update, list, get, set_active, mark_step, delete.",
+                "description": "要执行的命令。可选：create、update、list、get、set_active、mark_step、delete。",
                 "enum": [
                     "create",
                     "update",
@@ -36,29 +36,29 @@ class PlanningTool(BaseTool):
                 "type": "string",
             },
             "plan_id": {
-                "description": "Unique identifier for the plan. Required for create, update, set_active, and delete commands. Optional for get and mark_step (uses active plan if not specified).",
+                "description": "计划的唯一标识。create、update、set_active、delete 命令必填。get 和 mark_step 可选（未指定则使用当前活动计划）。",
                 "type": "string",
             },
             "title": {
-                "description": "Title for the plan. Required for create command, optional for update command.",
+                "description": "计划标题。create 命令必填，update 命令可选。",
                 "type": "string",
             },
             "steps": {
-                "description": "List of plan steps. Required for create command, optional for update command.",
+                "description": "计划步骤列表。create 命令必填，update 命令可选。",
                 "type": "array",
                 "items": {"type": "string"},
             },
             "step_index": {
-                "description": "Index of the step to update (0-based). Required for mark_step command.",
+                "description": "要更新的步骤索引（从 0 开始）。mark_step 命令必填。",
                 "type": "integer",
             },
             "step_status": {
-                "description": "Status to set for a step. Used with mark_step command.",
+                "description": "步骤状态。与 mark_step 命令一起使用。",
                 "enum": ["not_started", "in_progress", "completed", "blocked"],
                 "type": "string",
             },
             "step_notes": {
-                "description": "Additional notes for a step. Optional for mark_step command.",
+                "description": "步骤的补充说明。mark_step 命令可选。",
                 "type": "string",
             },
         },
@@ -321,7 +321,7 @@ class PlanningTool(BaseTool):
 
     def _format_plan(self, plan: Dict) -> str:
         """Format a plan for display."""
-        output = f"Plan: {plan['title']} (ID: {plan['plan_id']})\n"
+        output = f"计划：{plan['title']}（ID: {plan['plan_id']}）\n"
         output += "=" * len(output) + "\n\n"
 
         # Calculate progress statistics
@@ -335,15 +335,15 @@ class PlanningTool(BaseTool):
             1 for status in plan["step_statuses"] if status == "not_started"
         )
 
-        output += f"Progress: {completed}/{total_steps} steps completed "
+        output += f"进度：已完成 {completed}/{total_steps} 步 "
         if total_steps > 0:
             percentage = (completed / total_steps) * 100
-            output += f"({percentage:.1f}%)\n"
+            output += f"（{percentage:.1f}%）\n"
         else:
-            output += "(0%)\n"
+            output += "（0%）\n"
 
-        output += f"Status: {completed} completed, {in_progress} in progress, {blocked} blocked, {not_started} not started\n\n"
-        output += "Steps:\n"
+        output += f"状态：已完成 {completed}，进行中 {in_progress}，阻塞 {blocked}，未开始 {not_started}\n\n"
+        output += "步骤：\n"
 
         # Add each step with its status and notes
         for i, (step, status, notes) in enumerate(
@@ -358,6 +358,6 @@ class PlanningTool(BaseTool):
 
             output += f"{i}. {status_symbol} {step}\n"
             if notes:
-                output += f"   Notes: {notes}\n"
+                output += f"   备注：{notes}\n"
 
         return output

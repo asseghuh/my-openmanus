@@ -11,7 +11,7 @@ class SWEAgent(ToolCallAgent):
     """An agent that implements the SWEAgent paradigm for executing code and natural conversations."""
 
     name: str = "swe"
-    description: str = "an autonomous AI programmer that interacts directly with the computer to solve tasks."
+    description: str = "自主 AI 程序员，直接与计算机交互以完成任务。"
 
     system_prompt: str = SYSTEM_PROMPT
     next_step_prompt: str = ""

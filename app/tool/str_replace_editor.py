@@ -28,23 +28,22 @@ Command = Literal[
 SNIPPET_LINES: int = 4
 MAX_RESPONSE_LEN: int = 16000
 TRUNCATED_MESSAGE: str = (
-    "<response clipped><NOTE>To save on context only part of this file has been shown to you. "
-    "You should retry this tool after you have searched inside the file with `grep -n` "
-    "in order to find the line numbers of what you are looking for.</NOTE>"
+    "<response clipped><NOTE>为节省上下文，此处只展示了文件的一部分。"
+    "请先用 `grep -n` 在文件中搜索以定位行号，然后再重试本工具。</NOTE>"
 )
 
 # Tool description
-_STR_REPLACE_EDITOR_DESCRIPTION = """Custom editing tool for viewing, creating and editing files
-* State is persistent across command calls and discussions with the user
-* If `path` is a file, `view` displays the result of applying `cat -n`. If `path` is a directory, `view` lists non-hidden files and directories up to 2 levels deep
-* The `create` command cannot be used if the specified `path` already exists as a file
-* If a `command` generates a long output, it will be truncated and marked with `<response clipped>`
-* The `undo_edit` command will revert the last edit made to the file at `path`
+_STR_REPLACE_EDITOR_DESCRIPTION = """用于查看、创建和编辑文件的自定义编辑工具
+* 状态在多次命令调用以及与用户的讨论之间保持
+* 若 `path` 是文件，`view` 显示 `cat -n` 的结果；若 `path` 是目录，`view` 列出最多两层的非隐藏文件和目录
+* 若指定 `path` 已作为文件存在，则不能使用 `create` 命令
+* 若某条 `command` 输出过长，会被截断并标记为 `<response clipped>`
+* `undo_edit` 命令会撤销对 `path` 文件的上一次编辑
 
-Notes for using the `str_replace` command:
-* The `old_str` parameter should match EXACTLY one or more consecutive lines from the original file. Be mindful of whitespaces!
-* If the `old_str` parameter is not unique in the file, the replacement will not be performed. Make sure to include enough context in `old_str` to make it unique
-* The `new_str` parameter should contain the edited lines that should replace the `old_str`
+使用 `str_replace` 命令时注意：
+* `old_str` 必须与原文件中连续的一行或多行完全匹配。注意空白字符！
+* 若 `old_str` 在文件中不唯一，替换不会执行。请在 `old_str` 中包含足够上下文以确保唯一
+* `new_str` 应包含用来替换 `old_str` 的编辑后内容
 """
 
 
@@ -66,32 +65,32 @@ class StrReplaceEditor(BaseTool):
         "type": "object",
         "properties": {
             "command": {
-                "description": "The commands to run. Allowed options are: `view`, `create`, `str_replace`, `insert`, `undo_edit`.",
+                "description": "要执行的命令。可选：`view`、`create`、`str_replace`、`insert`、`undo_edit`。",
                 "enum": ["view", "create", "str_replace", "insert", "undo_edit"],
                 "type": "string",
             },
             "path": {
-                "description": "Absolute path to file or directory.",
+                "description": "文件或目录的绝对路径。",
                 "type": "string",
             },
             "file_text": {
-                "description": "Required parameter of `create` command, with the content of the file to be created.",
+                "description": "`create` 命令的必填参数，表示要创建的文件内容。",
                 "type": "string",
             },
             "old_str": {
-                "description": "Required parameter of `str_replace` command containing the string in `path` to replace.",
+                "description": "`str_replace` 命令的必填参数，表示 `path` 中要被替换的字符串。",
                 "type": "string",
             },
             "new_str": {
-                "description": "Optional parameter of `str_replace` command containing the new string (if not given, no string will be added). Required parameter of `insert` command containing the string to insert.",
+                "description": "`str_replace` 的可选参数，表示替换后的新字符串（未提供则不插入任何内容）。也是 `insert` 命令的必填参数，表示要插入的字符串。",
                 "type": "string",
             },
             "insert_line": {
-                "description": "Required parameter of `insert` command. The `new_str` will be inserted AFTER the line `insert_line` of `path`.",
+                "description": "`insert` 命令的必填参数。`new_str` 将插入到 `path` 中第 `insert_line` 行之后。",
                 "type": "integer",
             },
             "view_range": {
-                "description": "Optional parameter of `view` command when `path` points to a file. If none is given, the full file is shown. If provided, the file will be shown in the indicated line number range, e.g. [11, 12] will show lines 11 and 12. Indexing at 1 to start. Setting `[start_line, -1]` shows all lines from `start_line` to the end of the file.",
+                "description": "`view` 命令在 `path` 指向文件时的可选参数。未提供则显示整个文件。若提供，则按行号范围显示，例如 [11, 12] 显示第 11、12 行。行号从 1 开始。设置 `[start_line, -1]` 会显示从 `start_line` 到文件末尾的全部行。",
                 "items": {"type": "integer"},
                 "type": "array",
             },
